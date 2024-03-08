@@ -589,7 +589,27 @@ require('lazy').setup {
           -- See https://github.com/eclipse/eclipse.jdt.ls/wiki/Running-the-JAVA-LS-server-from-the-command-line#initialize-request
           -- for a list of options
           settings = {
-            java = {},
+            java = {
+              signatureHelp = { enabled = true },
+              contentProvider = { preferred = 'fernflower' },
+              completion = {
+                favoriteStaticMembers = {
+                  'org.hamcrest.MatcherAssert.assertThat',
+                  'org.hamcrest.Matchers.*',
+                  'org.hamcrest.CoreMatchers.*',
+                  'org.junit.jupiter.api.Assertions.*',
+                  'java.util.Objects.requireNonNull',
+                  'java.util.Objects.requireNonNullElse',
+                  'org.mockito.Mockito.*',
+                },
+              },
+              sources = {
+                organizeImports = {
+                  starThreshold = 9999,
+                  staticStarThreshold = 9999,
+                },
+              },
+            },
           },
 
           -- Language server `initializationOptions`
@@ -871,6 +891,7 @@ require('lazy').setup {
       require('nvim-tree').setup {
         view = {
           -- width = '20%',
+          adaptive_size = true,
         },
         update_focused_file = {
           enable = false,
@@ -915,6 +936,54 @@ require('lazy').setup {
   },
   { -- GitHub Copilot
     'github/copilot.vim',
+  },
+  { -- startup-nvim for castum startup screen
+    'startup-nvim/startup.nvim',
+    dependencies = { 'nvim-telescope/telescope.nvim', 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('startup').setup {
+
+        header = {
+          type = 'text',
+          oldfiles_directory = false,
+          align = 'center',
+          fold_section = false,
+          title = 'Header',
+          margin = 5,
+          content = {
+            "                _ (`-.  .-') _          _   .-')      ('-.                      _   .-')   .-. .-')   ('-. .-. ",
+            "               ( (OO  )(  OO) )        ( '.( OO )_   ( OO ).-.                 ( '.( OO )_ \\  ( OO ) ( OO )  / ",
+            " .-'),-----.  _.`     \\/     '._ ,-.-') ,--.   ,--.) / . --. /        ,----.    ,--.   ,--.);-----.\\ ,--. ,--. ",
+            "( OO'  .-.  '(__...--''|'--...__)|  |OO)|   `.'   |  | \\-.  \\        '  .-./-') |   `.'   | | .-.  | |  | |  | ",
+            "/   |  | |  | |  /  | |'--.  .--'|  |  \\|         |.-'-'  |  |       |  |_( O- )|         | | '-' /_)|   .|  | ",
+            "\\_) |  |\\|  | |  |_.' |   |  |   |  |(_/|  |'.'|  | \\| |_.'  |       |  | .--, \\|  |'.'|  | | .-. `. |       | ",
+            "  \\ |  | |  | |  .___.'   |  |  ,|  |_.'|  |   |  |  |  .-.  |      (|  | '. (_/|  |   |  | | |  \\  ||  .-.  | ",
+            "   `'  '-'  ' |  |        |  | (_|  |   |  |   |  |  |  | |  |       |  '--'  | |  |   |  | | '--'  /|  | |  | ",
+            "     `-----'  `--'        `--'   `--'   `--'   `--'  `--' `--'        `------'  `--'   `--' `------' `--' `--' ",
+          },
+          highlight = 'Statement',
+          default_color = '',
+          oldfiles_amount = 0,
+        },
+        body = {
+          type = 'mapping',
+          oldfiles_directory = false,
+          align = 'center',
+          fold_section = false,
+          title = 'Shortcuts',
+          margin = 5,
+          content = {
+            { ' File Browser', 'NvimTreeToggle', '<leader>e' },
+            { ' Find File', 'Telescope find_files', '<leader>sf' },
+            { '󰍉 Find Word', 'Telescope live_grep', '<leader>sg' },
+          },
+          highlight = 'String',
+          default_color = '',
+          oldfiles_amount = 0,
+        },
+        parts = { 'header', 'body' },
+      }
+    end,
   },
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- put them in the right spots if you want.
