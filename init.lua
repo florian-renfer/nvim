@@ -346,11 +346,11 @@ require('lazy').setup {
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
+        defaults = {
+          file_ignore_patterns = {
+            'node_modules',
+          },
+        },
         -- pickers = {}
         extensions = {
           ['ui-select'] = {
@@ -400,34 +400,11 @@ require('lazy').setup {
       end, { desc = '[S]earch [N]eovim files' })
     end,
   },
-  { -- Java LSP Configuration
-    'nvim-java/nvim-java',
-    dependencies = {
-      'nvim-java/lua-async-await',
-      'nvim-java/nvim-java-core',
-      'nvim-java/nvim-java-test',
-      'nvim-java/nvim-java-dap',
-      'MunifTanjim/nui.nvim',
-      'neovim/nvim-lspconfig',
-      'mfussenegger/nvim-dap',
-      {
-        'williamboman/mason.nvim',
-        opts = {
-          registries = {
-            'github:nvim-java/mason-registry',
-            'github:mason-org/mason-registry',
-          },
-        },
-      },
-    },
-    config = function()
-      require('java').setup()
-    end,
-  },
   { -- LSP Configuration & Plugins
     'neovim/nvim-lspconfig',
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for neovim
+      'mfussenegger/nvim-jdtls',
       'williamboman/mason.nvim',
       'williamboman/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
@@ -550,6 +527,18 @@ require('lazy').setup {
       local capabilities = vim.lsp.protocol.make_client_capabilities()
       capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
+      -- Additional variables and configuration values for language servers
+      local jdtls_base = vim.fn.stdpath 'data' .. '/mason/packages/jdtls'
+      local jdtls_jar = jdtls_base .. '/plugins/org.eclipse.equinox.launcher_1.6.700.v20231214-2017.jar'
+      local jdtls_config = jdtls_base .. '/config_mac'
+
+      local project_dir = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
+      local jdtls_workspace = vim.fn.stdpath 'data' .. '/workspace/' .. project_dir
+
+      os.execute('mkdir -p ' .. jdtls_workspace)
+
+      local lombok_jar = jdtls_base .. '/lombok.jar'
+
       -- Enable the following language servers
       --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
       --
@@ -560,20 +549,64 @@ require('lazy').setup {
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`tsserver`) will work just fine
-        tsserver = {},
         angularls = {},
+        cssls = {},
+        html = {},
+        jdtls = {
+          cmd = {
+            'java',
+            '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+            '-Dosgi.bundles.defaultStartLevel=4',
+            '-Declipse.product=org.eclipse.jdt.ls.core.product',
+            '-Dlog.protocol=true',
+            '-Dlog.level=ALL',
+            '-Xmx4g',
+            '-javaagent:' .. lombok_jar,
+            '--add-modules=ALL-SYSTEM',
+            '--add-opens',
+            'java.base/java.util=ALL-UNNAMED',
+            '--add-opens',
+            'java.base/java.lang=ALL-UNNAMED',
+            '-jar',
+            jdtls_jar,
+            '-configuration',
+            jdtls_config,
+            '-data',
+            jdtls_workspace,
+          },
+
+          -- This is the default if not provided, you can remove it. Or adjust as needed.
+          -- One dedicated LSP server & client will be started per unique root_dir
+          -- root_dir = { '.git', 'mvnw', 'gradlew' },
+
+          -- Here you can configure eclipse.jdt.ls specific settings
+          -- See https://github.com/eclipse/eclipse.jdt.ls/wiki/Running-the-JAVA-LS-server-from-the-command-line#initialize-request
+          -- for a list of options
+          settings = {
+            java = {},
+          },
+
+          -- Language server `initializationOptions`
+          -- You need to extend the `bundles` with paths to jar files
+          -- if you want to use additional eclipse.jdt.ls plugins.
+          --
+          -- See https://github.com/mfussenegger/nvim-jdtls#java-debug-installation
+          --
+          -- If you don't plan on using the debugger or other eclipse.jdt.ls plugins you can remove this
+          init_options = {
+            bundles = {},
+          },
+        },
+        markdownlint = {},
+        tailwindcss = {},
+        tsserver = {},
         prettier = {},
-        jdtls = {},
         lua_ls = {
           -- cmd = {...},
           -- filetypes { ...},
@@ -648,7 +681,7 @@ require('lazy').setup {
         --
         -- You can use a sub-list to tell conform to run *until* a formatter
         -- is found.
-        -- javascript = { { "prettierd", "prettier" } },
+        javascript = { { 'prettierd', 'prettier' } },
       },
     },
   },
@@ -812,6 +845,7 @@ require('lazy').setup {
       ---@diagnostic disable-next-line: missing-fields
       require('nvim-treesitter.configs').setup {
         ensure_installed = { 'bash', 'c', 'html', 'lua', 'markdown', 'vim', 'vimdoc' },
+
         -- Autoinstall languages that are not installed
         auto_install = true,
         highlight = { enable = true },
@@ -826,7 +860,7 @@ require('lazy').setup {
       --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
     end,
   },
-  {
+  { -- nvim-tree as file explorer
     'nvim-tree/nvim-tree.lua',
     version = '*',
     lazy = false,
@@ -836,25 +870,52 @@ require('lazy').setup {
     config = function()
       require('nvim-tree').setup {
         view = {
-          width = '20%',
+          -- width = '20%',
+        },
+        update_focused_file = {
+          enable = false,
+          update_root = false,
+          ignore_list = {},
         },
       }
-      require('nvim-tree.api').tree.open()
 
       vim.keymap.set('n', '<leader>e', '<cmd>NvimTreeToggle<cr>', { desc = 'Toggl[e] file tree' })
     end,
   },
-  {
+  { -- Git integration
     vim.keymap.set('n', '<leader>gs', '<cmd>!git status<cr>', { desc = '[G]it [s]tatus' }),
     vim.keymap.set('n', '<leader>ga', '<cmd>!git add -A<cr>', { desc = '[G]it [a]dd all' }),
+  },
+  { -- bufdelete to close buffers without messing up the window layout
+    'famiu/bufdelete.nvim',
   },
   { -- bufferline to display tabs properly
     'akinsho/bufferline.nvim',
     version = '*',
     dependencies = 'nvim-tree/nvim-web-devicons',
-  },
+    config = function()
+      require('bufferline').setup {
+        options = {
+          offsets = {
+            {
+              filetype = 'NvimTree',
+              text = 'File Explorer',
+              highlight = 'Directory',
+              separator = true, -- use a "true" to enable the default, or set your own character
+            },
+          },
+          close_command = require('bufdelete').bufdelete,
+        },
+      }
 
-  -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
+      vim.keymap.set('n', '<leader>b,', '<cmd>:BufferLineCyclePrev<cr>', { desc = 'Go to previous buffer [,]' })
+      vim.keymap.set('n', '<leader>b.', '<cmd>:BufferLineCycleNext<cr>', { desc = 'Go to next buffer [.]' })
+      vim.keymap.set('n', '<leader>bq', require('bufdelete').bufdelete, { desc = 'Close current buffer [q]' })
+    end,
+  },
+  { -- GitHub Copilot
+    'github/copilot.vim',
+  },
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- put them in the right spots if you want.
 
