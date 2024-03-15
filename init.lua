@@ -224,6 +224,7 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup {
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+  'mfussenegger/nvim-jdtls', -- Java LSP
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -526,17 +527,8 @@ require('lazy').setup {
       local capabilities = vim.lsp.protocol.make_client_capabilities()
       capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
-      -- Additional variables and configuration values for language servers
-      local jdtls_base = vim.fn.stdpath 'data' .. '/mason/packages/jdtls'
-      local jdtls_jar = jdtls_base .. '/plugins/org.eclipse.equinox.launcher_1.6.700.v20231214-2017.jar'
-      local jdtls_config = jdtls_base .. '/config_mac'
-
-      local project_dir = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
-      local jdtls_workspace = vim.fn.stdpath 'data' .. '/workspace/' .. project_dir
-
-      os.execute('mkdir -p ' .. jdtls_workspace)
-
-      local lombok_jar = jdtls_base .. '/lombok.jar'
+      -- Increase LSP log level
+      vim.lsp.set_log_level(0)
 
       -- Enable the following language servers
       --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
@@ -555,12 +547,18 @@ require('lazy').setup {
         --
         -- But for many setups, the LSP (`tsserver`) will work just fine
         angularls = {},
-        cssls = {},
-        html = {},
+        eslint = {
+          on_attach = function(client, bufnr)
+            vim.api.nvim_create_autocmd('BufWritePre', {
+              buffer = bufnr,
+              command = 'EslintFixAll',
+            })
+          end,
+        },
+        jdtls = {
+          autostart = false,
+        },
         markdownlint = {},
-        tailwindcss = {},
-        tsserver = {},
-        prettier = {},
         lua_ls = {
           -- cmd = {...},
           -- filetypes { ...},
@@ -616,6 +614,7 @@ require('lazy').setup {
             require('lspconfig')[server_name].setup(server)
           end,
         },
+        automatic_installation = true,
       }
     end,
   },
@@ -939,92 +938,6 @@ require('lazy').setup {
       'nvim-lua/plenary.nvim',
     },
     vim.keymap.set('n', '<leader>g', '<cmd>:LazyGit<CR>', { desc = 'Open Lazy[g]it' }),
-  },
-  { -- nvim-jdtls as Java LSP
-    'mfussenegger/nvim-jdtls',
-    config = function()
-      -- Additional variables and configuration values for language servers
-      local jdtls_base = vim.fn.stdpath 'data' .. '/mason/packages/jdtls'
-      local jdtls_jar = jdtls_base .. '/plugins/org.eclipse.equinox.launcher_1.6.700.v20231214-2017.jar'
-      local jdtls_config = jdtls_base .. '/config_mac'
-
-      local project_dir = vim.fn.fnamemodify(vim.fn.getcwd(), ':p:h:t')
-      local jdtls_workspace = vim.fn.stdpath 'data' .. '/workspace/' .. project_dir
-
-      os.execute('mkdir -p ' .. jdtls_workspace)
-
-      local lombok_jar = jdtls_base .. '/lombok.jar'
-
-      local config = {
-        cmd = {
-          'java',
-          '-Declipse.application=org.eclipse.jdt.ls.core.id1',
-          '-Dosgi.bundles.defaultStartLevel=4',
-          '-Declipse.product=org.eclipse.jdt.ls.core.product',
-          '-Dlog.protocol=true',
-          '-Dlog.level=ALL',
-          '-Xmx4g',
-          '-javaagent:' .. lombok_jar,
-          '--add-modules=ALL-SYSTEM',
-          '--add-opens',
-          'java.base/java.util=ALL-UNNAMED',
-          '--add-opens',
-          'java.base/java.lang=ALL-UNNAMED',
-          '-jar',
-          jdtls_jar,
-          '-configuration',
-          jdtls_config,
-          '-data',
-          jdtls_workspace,
-        },
-
-        -- This is the default if not provided, you can remove it. Or adjust as needed.
-        -- One dedicated LSP server & client will be started per unique root_dir
-        -- root_dir = { '.git', 'mvnw', 'gradlew' },
-
-        -- Here you can configure eclipse.jdt.ls specific settings
-        -- See https://github.com/eclipse/eclipse.jdt.ls/wiki/Running-the-JAVA-LS-server-from-the-command-line#initialize-request
-        -- for a list of options
-        settings = {
-          java = {
-            signatureHelp = { enabled = true },
-            contentProvider = { preferred = 'fernflower' },
-            completion = {
-              favoriteStaticMembers = {
-                'org.hamcrest.MatcherAssert.assertThat',
-                'org.hamcrest.Matchers.*',
-                'org.hamcrest.CoreMatchers.*',
-                'org.junit.jupiter.api.Assertions.*',
-                'java.util.Objects.requireNonNull',
-                'java.util.Objects.requireNonNullElse',
-                'org.mockito.Mockito.*',
-              },
-            },
-            sources = {
-              organizeImports = {
-                starThreshold = 9999,
-                staticStarThreshold = 9999,
-              },
-            },
-          },
-        },
-
-        -- Language server `initializationOptions`
-        -- You need to extend the `bundles` with paths to jar files
-        -- if you want to use additional eclipse.jdt.ls plugins.
-        --
-        -- See https://github.com/mfussenegger/nvim-jdtls#java-debug-installation
-        --
-        -- If you don't plan on using the debugger or other eclipse.jdt.ls plugins you can remove this
-        init_options = {
-          bundles = {},
-        },
-      }
-
-      -- This starts a new client & server,
-      -- or attaches to an existing client & server depending on the `root_dir`.
-      require('jdtls').start_or_attach(config)
-    end,
   },
   --
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
